@@ -1,6 +1,8 @@
 # Picotamachibi
 ## A Raspberry Pi Pico Powered Virtual Pet
 
+Picotamachibi is a tiny virtual pet built for the Pico-LCD-1.14, featuring animated sprites, a toolbar-driven UI, and timed events that drive sleep, feeding, and health. The project uses PBM assets and MicroPython modules organized under `gui` to keep display and UI logic tidy.
+
 By Kevin McAleer, September 2021
 
 ---
@@ -12,16 +14,27 @@ This is the code repository that accompanies this video:
 ---
 
 ## About this code
-To use the code, upload all the `.pbm` files to the pico, the entire `gui` folder (including `ssd1306.py` and `pico_lcd_1_14.py`), and the main program `picotamachibi.py`.
+To use the code, upload all the `.pbm` files to the pico, the entire `gui` folder (the main app uses `pico_lcd_1_14.py`; `ssd1306.py` is only for the SSD1306 demo), and the main program `picotamachibi.py`.
 
-## Wiring
-1. GPIO 0 is connected to the screen SDA
-2. GPIO 1 is connected to the screen SCL
-3. GPIO 2 is connected to the cancel button (button X)
-4. GPIO 3 is connected to the B button
-5. GPIO 4 is connected to the A button
+## Wiring (Pico-LCD-1.14)
+Display (SPI1):
+1. BL = GPIO 13
+2. DC = GPIO 8
+3. RST = GPIO 12
+4. MOSI = GPIO 11
+5. SCK = GPIO 10
+6. CS = GPIO 9
 
-Press the A button to move the toolbar selector across the different options, Press button X to cancel the selection or Button B to select the menu option.
+Buttons:
+1. A = GPIO 15
+2. B = GPIO 17
+3. Up = GPIO 2
+4. Center = GPIO 3
+5. Left = GPIO 16
+6. Down = GPIO 18
+7. Right = GPIO 20
+
+Press A or Left/Right to move the toolbar selector, Center to cancel, and B to select the menu option.
 
 ## Getting help
 If you have any questions about this, [join our discord](https://action.smarsfan.com/join-discord) server and ask away : )
