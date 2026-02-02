@@ -1,56 +1,59 @@
 # from icons import food_icon
-from machine import I2C, Pin
-from gui.ssd1306 import *
-from icon import Animate, Icon, Toolbar, Button, Event, GameState
-from time import sleep
+from machine import Pin, PWM
+from gui.pico_lcd_1_14 import LCD_1inch14, BL
+from gui.animate import Animate
+from gui.icon_icon import Icon
+from gui.toolbar import Toolbar
+from gui.button import Button
+from gui.event import Event
+from gui.game_state import GameState
+from time import sleep, ticks_ms, ticks_diff
 import framebuf
 from random import randint
 
-sda = Pin(0)
-scl = Pin(1)
-id = 0
+# Pico-LCD-1.14 default pinout (SPI1 on GPIO 9-13)
+pwm = PWM(Pin(BL))
+pwm.freq(1000)
+pwm.duty_u16(32768)
 
-i2c = I2C(id=id, sda=sda, scl=scl)
-
-oled = SSD1306_I2C(width=128, height=64, i2c=i2c)
-oled.init_display()
-print(f"oled: {oled}")
+lcd = LCD_1inch14()
+oled = lcd
+print(f"display: {oled}")
 
 # load icons
-food = Icon('food.pbm', width=16, height=16, name="food")
-lightbulb = Icon('lightbulb.pbm', width=16, height=16, name="lightbulb")
-game = Icon('game.pbm', width=16, height=16, name="game")
-firstaid = Icon('firstaid.pbm', width=16, height=16, name="firstaid")
-toilet = Icon('toilet.pbm', width=16, height=16, name="toilet")
-heart = Icon('heart.pbm', width=16, height=16, name="heart")
-call = Icon('call.pbm', width=16, height=16, name="call")
-
-# Set Animations
-poopy =    Animate(x=96, y=48, width=16, height=16, filename='poop')
-baby =     Animate(x=48, y=16, width=48, height=48, animation_type="bounce", filename='baby_bounce')
-eat =      Animate(x=48, y=16, width=48, height=48, filename='eat')
-babyzzz =  Animate(x=48, y=16, width=48, height=48, animation_type="loop", filename='baby_zzz')
-death =    Animate(x=48, y=16, animation_type='bounce', filename="skull")
-go_potty = Animate(filename="potty", animation_type='bounce',x=64,y=16, width=48, height=48)
-
-# Set the game state
-gamestate = GameState()
-
-# Append states to the states dictionary
-gamestate.states["sleeping"] = False      # Baby is not sleeping
-gamestate.states["feeding_time"] = False  # Baby is not eating
-gamestate.states["cancel"] = False
-gamestate.states["unwell"] = False
-gamestate.states["health"] = 10
-gamestate.states["happiness"] = 10
-gamestate.states["sleepiness"] = 10
-gamestate.states["tired"] = False
+food = Icon('food.pbm', width=32, height=32, name="food", scale=2)
+lightbulb = Icon('lightbulb.pbm', width=32, height=32, name="lightbulb", scale=2)
+game = Icon('game.pbm', width=32, height=32, name="game", scale=2)
+firstaid = Icon('firstaid.pbm', width=32, height=32, name="firstaid", scale=2)
+toilet = Icon('toilet.pbm', width=32, height=32, name="toilet", scale=2)
+heart = Icon('heart.pbm', width=32, height=32, name="heart", scale=2)
+call = Icon('call.pbm', width=32, height=32, name="call", scale=2)
 
 # Game Variables
 TIREDNESS = 5 # seconds
 POOP_MIN = 5 # seconds
 POOP_MAX = 100 # seconds
 SLEEP_DURATION = 5 # seconds
+SCREEN_W = 240
+DEATH_W = 32
+DEATH_SPEED = 2
+
+# Set Animations
+poopy =    Animate(x=208, y=103, width=32, height=32, filename='poop', scale=2)
+baby =     Animate(x=72, y=35, width=96, height=96, animation_type="bounce", filename='baby_bounce', scale=2)
+eat =      Animate(x=72, y=35, width=96, height=96, filename='eat', scale=2)
+babyzzz =  Animate(x=72, y=35, width=96, height=96, animation_type="loop", filename='baby_zzz', scale=2)
+death =    Animate(x=72, y=35, animation_type='bounce', filename="skull", scale=2)
+go_potty = Animate(filename="potty", animation_type='bounce',x=72,y=35, width=96, height=96, scale=2)
+
+death_x = death.x
+death_dx = DEATH_SPEED
+
+# Set the game state
+gamestate = GameState()
+
+# Append states to the states dictionary
+gamestate.reset()
 
 
 def tired():
@@ -77,7 +80,7 @@ def poop_check():
     
 def clear():
     """ Clear the screen """
-    oled.fill_rect(0,0,128,64,0)
+    oled.fill_rect(0, 0, 240, 135, 0)
 
 def build_toolbar():
     print("building toolbar")
@@ -141,12 +144,11 @@ def do_toolbar_stuff():
         gamestate.states["health"] += 1
         clear()
     if tb.selected_item == "heart":
-#             print("heart")
+        print("heart")
         gamestate.states["happiness"] += 10
 
     if tb.selected_item == "call":
-#             print("call")
-        pass
+        print("Tamagotchi status:", gamestate)
 
 def unhealthy_environment():
     gamestate.states["health"] -= 1
@@ -160,8 +162,26 @@ def unhealthy_environment():
     gamestate.states["unwell"] = False 
 
 def update_gamestate():
-
-    print(gamestate)
+    # Avoid per-frame logging to keep input responsive.
+    if gamestate.states["health"] == 0:
+        global death_x, death_dx
+        death.set = True
+        baby.set = False
+        babyzzz.set = False
+        poopy.set = False
+        go_potty.set = False
+        eat.set = False
+        death.x = death_x
+        death_x += death_dx
+        if death_x <= 0 or death_x >= (SCREEN_W - DEATH_W):
+            death_dx = -death_dx
+            if death_x < 0:
+                death_x = 0
+            elif death_x > (SCREEN_W - DEATH_W):
+                death_x = SCREEN_W - DEATH_W
+        death.animate(oled)
+        oled.text("GAME OVER", 80, 10, 0xFFFF)
+        return
     if gamestate.states["feeding_time"]:
         babyzzz.set = False
         baby.set = False
@@ -211,9 +231,6 @@ def update_gamestate():
     if gamestate.states["health"] >= 1:
         death.set = False
     
-    if gamestate.states["health"] == 0:
-        death.set = True
-    
     if not gamestate.states["tired"]:
         gamestate.states["tired"] = True
         tiredness.start(5000)
@@ -224,13 +241,19 @@ def update_gamestate():
             babyzzz.animate(oled)
 tb = build_toolbar()
 
-# Setup buttons
-button_a = Button(2)
-button_b = Button(3)
-button_x = Button(4)
+# Setup buttons (Pico-LCD-1.14 key binding)
+# keyA=15, keyB=17, key2=2(up), key3=3(center), key4=16(left), key5=18(down), key6=20(right)
+button_a = Button(15, active_low=True)
+button_b = Button(17, active_low=True)
+button_up = Button(2, active_low=True)
+button_center = Button(3, active_low=True)
+button_left = Button(16, active_low=True)
+button_down = Button(18, active_low=True)
+button_right = Button(20, active_low=True)
 
 # Set toolbar index
 index = 0
+TOOLBAR_ITEMS = 7
 
 # Set the toolbar
 tb.select(index, oled)
@@ -252,7 +275,8 @@ baby.loop(no=-1)
 poopy.bounce()
 death.loop(no=-1)
 death.speed='very slow'
-babyzzz.speed = 'very slow'
+babyzzz.speed = 'normal'
+babyzzz.loop(no=-1)
 # go_potty.loop(no=1)
 # go_potty.set = True
 poopy.set = False
@@ -262,31 +286,98 @@ poopy.set = False
 baby.set = True
 
 # Main Game Loop
+last_a = False
+last_b = False
+last_center = False
+last_left = False
+last_right = False
+last_nav_time = 0
+NAV_REPEAT_MS = 80
+last_render_time = 0
+RENDER_MS = 50
 while True:
     key = ' '
 #     baby.animate(oled)
 
+    center_now = button_center.is_pressed
+
+    if gamestate.states["health"] == 0:
+        clear()
+        if center_now and not last_center:
+            gamestate.reset()
+            death.set = False
+            death_x = 72
+            death_dx = DEATH_SPEED
+            death.x = death_x
+            baby.set = True
+            babyzzz.set = False
+            poopy.set = False
+            go_potty.set = False
+            eat.set = False
+            index = 0
+            tb.select(index, oled)
+            tb.show(oled)
+            poop_event.start(randint(POOP_MIN * 1000, POOP_MAX * 1000))
+        update_gamestate()
+        oled.show()
+        last_center = center_now
+        sleep(0.02)
+        continue
+
     if not gamestate.states["cancel"]:
         tb.unselect(index, oled)
         
-    if button_a.is_pressed:
-        index += 1
-        if index == 7:
+    a_now = button_a.is_pressed
+    b_now = button_b.is_pressed
+    center_now = button_center.is_pressed
+    left_now = button_left.is_pressed
+    right_now = button_right.is_pressed
+
+    now = ticks_ms()
+    right_repeat = right_now and (not last_right or ticks_diff(now, last_nav_time) >= NAV_REPEAT_MS)
+    left_repeat = left_now and (not last_left or ticks_diff(now, last_nav_time) >= NAV_REPEAT_MS)
+
+    if right_repeat:
+        if index < 0:
             index = 0
+        else:
+            index += 1
+            if index >= TOOLBAR_ITEMS:
+                index = 0
         gamestate.states["cancel"] = False
+        last_nav_time = now
+
+    if left_repeat:
+        if index < 0:
+            index = TOOLBAR_ITEMS - 1
+        else:
+            index -= 1
+            if index < 0:
+                index = TOOLBAR_ITEMS - 1
+        gamestate.states["cancel"] = False
+        last_nav_time = now
         
-    if button_x.is_pressed:
+    if center_now and not last_center:
         gamestate.states["cancel"] = True
         index = -1
     
     if not gamestate.states["cancel"]:
         tb.select(index, oled)
 
-    if button_b.is_pressed:
+    if b_now and not last_b:
         do_toolbar_stuff()
+
+    last_a = a_now
+    last_b = b_now
+    last_center = center_now
+    last_left = left_now
+    last_right = right_now
     
-    tb.show(oled) 
-    update_gamestate()   
-    oled.show()
-    sleep(0.05)
+    now = ticks_ms()
+    if ticks_diff(now, last_render_time) >= RENDER_MS:
+        tb.show(oled)
+        update_gamestate()
+        oled.show()
+        last_render_time = now
+    sleep(0.01)
     

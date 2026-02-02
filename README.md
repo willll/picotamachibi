@@ -12,7 +12,7 @@ This is the code repository that accompanies this video:
 ---
 
 ## About this code
-To use the code, upload all the `.pbm` files to the pico, along with the ssd1306 driver (`ssd1306.py`), `icon.py` library and the main program `picotamachibi.py`.
+To use the code, upload all the `.pbm` files to the pico, the entire `gui` folder (including `ssd1306.py` and `pico_lcd_1_14.py`), and the main program `picotamachibi.py`.
 
 ## Wiring
 1. GPIO 0 is connected to the screen SDA
