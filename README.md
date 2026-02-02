@@ -11,6 +11,8 @@ This is the code repository that accompanies this video:
 
 [![PicoTamachibi](https://img.youtube.com/vi/c6D1JRDddkE/0.jpg)](https://youtu.be/c6D1JRDddkE)
 
+[![PicoTamachibi Pico-LCD-1.14]](https://youtube.com/shorts/tH2mpzrPVa4)
+
 ---
 
 ## About this code
